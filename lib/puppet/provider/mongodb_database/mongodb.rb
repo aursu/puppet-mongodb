@@ -9,12 +9,16 @@ Puppet::Type.type(:mongodb_database).provide(:mongodb, parent: Puppet::Provider:
   def self.instances
     require 'json'
 
-    pre_cmd = 'try { rs.secondaryOk() } catch (err) { rs.slaveOk() }'
-    dbs = JSON.parse mongo_eval("#{pre_cmd};printjson(db.getMongo().getDBs())")
+    if db_ismaster
+      dbs = JSON.parse mongo_eval('EJSON.stringify(db.getMongo().getDBs())')
 
-    dbs['databases'].map do |db|
-      new(name: db['name'],
-          ensure: :present)
+      dbs['databases'].map do |db|
+        new(name: db['name'],
+            ensure: :present)
+      end
+    else
+      Puppet.warning 'Database info is available only from master host'
+      []
     end
   end
 
@@ -29,7 +33,7 @@ Puppet::Type.type(:mongodb_database).provide(:mongodb, parent: Puppet::Provider:
 
   def create
     if db_ismaster
-      out = mongo_eval('db.dummyData.insert({"created_by_puppet": 1})', @resource[:name])
+      out = mongo_eval('db.dummyData.insertOne({"created_by_puppet": 1})', @resource[:name])
       raise "Failed to create DB '#{@resource[:name]}'\n#{out}" if %r{writeError} =~ out
     else
       Puppet.warning 'Database creation is available only from master host'

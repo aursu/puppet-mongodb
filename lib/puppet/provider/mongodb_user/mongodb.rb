@@ -9,29 +9,23 @@ Puppet::Type.type(:mongodb_user).provide(:mongodb, parent: Puppet::Provider::Mon
   def self.instances
     require 'json'
 
-    if db_ismaster
-      script = 'printjson(db.system.users.find().toArray())'
-      # A hack to prevent prefetching failures until admin user is created
-      script = "try {#{script}} catch (e) { if (e.message.match(/not authorized on admin/)) { 'not authorized on admin' } else {throw e}}" if auth_enabled
+    script = 'EJSON.stringify(db.system.users.find().toArray())'
+    # A hack to prevent prefetching failures until admin user is created
+    script = "try {#{script}} catch (e) { if (e.message.match(/requires authentication/) || e.message.match(/not authorized on admin/)) { 'not authorized on admin' } else {throw e}}" if auth_enabled
 
-      out = mongo_eval(script)
+    out = mongo_eval(script)
+    return [] if auth_enabled && (out.include?('requires authentication') || out.include?('not authorized on admin'))
 
-      return [] if auth_enabled && out.include?('not authorized on admin')
+    users = JSON.parse out
 
-      users = JSON.parse out
-
-      users.map do |user|
-        new(name: user['_id'],
-            ensure: :present,
-            username: user['user'],
-            database: user['db'],
-            roles: from_roles(user['roles'], user['db']),
-            password_hash: user['credentials']['MONGODB-CR'],
-            scram_credentials: user['credentials']['SCRAM-SHA-1'])
-      end
-    else
-      Puppet.warning 'User info is available only from master host'
-      []
+    users.map do |user|
+      new(name: user['_id'],
+          ensure: :present,
+          username: user['user'],
+          database: user['db'],
+          roles: from_roles(user['roles'], user['db']),
+          password_hash: user['credentials']['MONGODB-CR'],
+          scram_credentials: user['credentials']['SCRAM-SHA-1'])
     end
   end
 
@@ -59,17 +53,12 @@ Puppet::Type.type(:mongodb_user).provide(:mongodb, parent: Puppet::Provider::Mon
         roles: role_hashes(@resource[:roles], @resource[:database]),
       }
 
-      if mongo_4? || mongo_5?
-        if @resource[:auth_mechanism] == :scram_sha_256 # rubocop:disable Naming/VariableNumber
-          command[:mechanisms] = ['SCRAM-SHA-256']
-          command[:pwd] = @resource[:password]
-          command[:digestPassword] = true
-        else
-          command[:mechanisms] = ['SCRAM-SHA-1']
-          command[:pwd] = password_hash
-          command[:digestPassword] = false
-        end
+      if @resource[:auth_mechanism] == :scram_sha_256
+        command[:mechanisms] = ['SCRAM-SHA-256']
+        command[:pwd] = @resource[:password]
+        command[:digestPassword] = true
       else
+        command[:mechanisms] = ['SCRAM-SHA-1']
         command[:pwd] = password_hash
         command[:digestPassword] = false
       end
@@ -110,22 +99,15 @@ Puppet::Type.type(:mongodb_user).provide(:mongodb, parent: Puppet::Provider::Mon
     end
   end
 
-  def password=(value)
-    if mongo_26?
-      mongo_eval("db.changeUserPassword(#{@resource[:username].to_json}, #{value.to_json})", @resource[:database])
-    else
-      command = {
-        updateUser: @resource[:username],
-        pwd: @resource[:password],
-        digestPassword: true
-      }
+  def password=(_value)
+    command = {
+      updateUser: @resource[:username],
+      pwd: @resource[:password],
+      digestPassword: true,
+      mechanisms: @resource[:auth_mechanism] == :scram_sha_256 ? ['SCRAM-SHA-256'] : ['SCRAM-SHA-1']
+    }
 
-      if mongo_4? || mongo_5?
-        command[:mechanisms] = @resource[:auth_mechanism] == :scram_sha_256 ? ['SCRAM-SHA-256'] : ['SCRAM-SHA-1'] # rubocop:disable Naming/VariableNumber
-      end
-
-      mongo_eval("db.runCommand(#{command.to_json})", @resource[:database])
-    end
+    mongo_eval("db.runCommand(#{command.to_json})", @resource[:database])
   end
 
   def roles=(roles)

@@ -1,6 +1,6 @@
 {
   "name": "aursu-mongodb",
-  "version": "4.2.3",
+  "version": "6.0.2-rc0",
   "author": "Vox Pupuli",
   "summary": "Installs MongoDB on RHEL/Ubuntu/Debian.",
   "license": "Apache-2.0",
@@ -11,26 +11,53 @@
     {
       "operatingsystem": "RedHat",
       "operatingsystemrelease": [
-        "7"
+        "7",
+        "8",
+        "9"
       ]
     },
     {
       "operatingsystem": "CentOS",
       "operatingsystemrelease": [
-        "7"
+        "7",
+        "8",
+        "9"
+      ]
+    },
+    {
+      "operatingsystem": "Rocky",
+      "operatingsystemrelease": [
+        "8",
+        "9"
+      ]
+    },
+    {
+      "operatingsystem": "AlmaLinux",
+      "operatingsystemrelease": [
+        "8",
+        "9"
+      ]
+    },
+    {
+      "operatingsystem": "OracleLinux",
+      "operatingsystemrelease": [
+        "8",
+        "9"
       ]
     },
     {
       "operatingsystem": "Debian",
       "operatingsystemrelease": [
-        "10"
+        "10",
+        "11",
+        "12"
       ]
     },
     {
       "operatingsystem": "Ubuntu",
       "operatingsystemrelease": [
-        "18.04",
-        "20.04"
+        "20.04",
+        "22.04"
       ]
     },
     {
@@ -50,19 +77,19 @@
   "dependencies": [
     {
       "name": "puppetlabs/apt",
-      "version_requirement": ">= 2.1.0 < 10.0.0"
+      "version_requirement": ">= 9.2.0 < 10.0.0"
     },
     {
       "name": "puppetlabs/stdlib",
-      "version_requirement": ">= 4.25.0 < 10.0.0"
+      "version_requirement": ">= 9.0.0 < 10.0.0"
     },
     {
       "name": "puppet/systemd",
-      "version_requirement": ">= 2.5.1 < 7.0.0"
+      "version_requirement": ">= 5.1.0 < 8.0.0"
     },
     {
       "name": "puppet/zypprepo",
-      "version_requirement": ">= 4.0.1 < 6.0.0"
+      "version_requirement": ">= 5.0.0 < 6.0.0"
     }
   ]
 }
